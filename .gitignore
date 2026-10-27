@@ -1,0 +1,15 @@
+# Local datasets and generated caches
+data/
+dataset/
+experiments/
+tests/
+helpers.py
+result/
+
+# Python and notebook caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+venv/

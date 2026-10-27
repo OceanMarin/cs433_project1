@@ -11,8 +11,7 @@ def mean_squared_error_gd(y, tx, initial_w, max_iters, gamma):
         gamma: a scalar denoting the learning rate
 
     Returns:
-        losses: a list of length max_iters containing the loss value for each iteration of GD
-        ws: a list of length max_iters + 1 containing the model parameters as numpy arrays of shape (d, ), for each iteration of GD
+        The final weights and their mean squared error loss.
     """
 
     # initialize parameters
@@ -30,9 +29,9 @@ def mean_squared_error_gd(y, tx, initial_w, max_iters, gamma):
         ws.append(w)
         losses.append(loss)
 
-    return losses, ws
+    return w, mse_loss(y, tx, w)
 
-def mean_squared_error_sgd(y, tx, initial_w, max_iters, gamma, batch_size=1):
+def mean_squared_error_sgd(y, tx, initial_w, max_iters, gamma):
     """The Stochastic Gradient Descent algorithm (SGD).
 
     Args:
@@ -43,8 +42,7 @@ def mean_squared_error_sgd(y, tx, initial_w, max_iters, gamma, batch_size=1):
         gamma: a scalar denoting the stepsize
 
     Returns:
-        losses: a list of length max_iters containing the loss value (scalar) for each iteration of SGD
-        ws: a list of length max_iters containing the model parameters as numpy arrays of shape (d, ), for each iteration of SGD
+        The final weights and their mean squared error loss.
     """
 
     # initialize parameters
@@ -53,17 +51,17 @@ def mean_squared_error_sgd(y, tx, initial_w, max_iters, gamma, batch_size=1):
     w = initial_w
 
     for n_iter in range(max_iters):
-        for minibatch_y, minibatch_tx in batch_iter(y, tx, batch_size):
+        for minibatch_y, minibatch_tx in batch_iter(y, tx, 1):
             stoch_gradient = compute_stoch_gradient(minibatch_y, minibatch_tx, w)
             loss = mse_loss(minibatch_y, minibatch_tx, w)
-        
+
         # update w
         w = w - gamma * stoch_gradient
 
         ws.append(w)
         losses.append(loss)
 
-    return losses, ws
+    return w, mse_loss(y, tx, w)
 
 def least_squares(y, tx):
     """Calculate the least squares solution.
@@ -95,17 +93,47 @@ def ridge_regression(y, tx, lambda_):
 
     Returns:
         w: optimal weights, numpy array of shape(D,), D is the number of features.
+        loss: unregularized MSE at the returned weights.
 
-    >>> ridge_regression(np.array([0.1,0.2]), np.array([[2.3, 3.2], [1., 0.1]]), 0)
+    >>> ridge_regression(np.array([0.1,0.2]), np.array([[2.3, 3.2], [1., 0.1]]), 0)[0]
     array([ 0.21212121, -0.12121212])
-    >>> ridge_regression(np.array([0.1,0.2]), np.array([[2.3, 3.2], [1., 0.1]]), 1)
+    >>> ridge_regression(np.array([0.1,0.2]), np.array([[2.3, 3.2], [1., 0.1]]), 1)[0]
     array([0.03947092, 0.00319628])
     """
     N, D = tx.shape[0], tx.shape[1]
     l_prime = np.eye(D) * (2*lambda_*N) 
     w = np.linalg.solve(tx.T @ tx + l_prime, tx.T @ y)
 
-    return w
+    return w, mse_loss(y, tx, w)
+
+
+def logistic_regression(y, tx, initial_w, max_iters, gamma):
+    """Fit logistic regression by gradient descent and return (w, data loss).
+
+    Labels must be a one-dimensional array in {0, 1}. The returned loss is
+    mean binary cross-entropy evaluated at the final weights.
+    """
+    return reg_logistic_regression(y, tx, 0.0, initial_w, max_iters, gamma)
+
+
+def reg_logistic_regression(y, tx, lambda_, initial_w, max_iters, gamma):
+    """Fit logistic regression with an L2 penalty using gradient descent.
+
+    The training objective is mean binary cross-entropy + lambda_ * ||w||^2.
+    As required by the course, the returned loss excludes the penalty and all
+    supplied weights, including an intercept if present, are regularized.
+    """
+    w = np.array(initial_w, dtype=float, copy=True)
+    for _ in range(max_iters):
+        logits = tx @ w
+        probabilities = np.exp(-np.logaddexp(0, -logits))
+        gradient = tx.T @ (probabilities - y) / len(y) + 2 * lambda_ * w
+        w -= gamma * gradient
+
+    logits = tx @ w
+    loss = np.mean(np.logaddexp(0, logits) - y * logits)
+    return w, loss
+
 
 def mse_loss(y, tx, w):
     """Calculate the MSE loss.
@@ -120,7 +148,7 @@ def mse_loss(y, tx, w):
     """
     N = y.shape[0]
     error = y - tx @ w
-    loss = (1 / 2*N) * error.T @ error
+    loss = (error.T @ error) / (2 * N)
 
     return loss
 
@@ -350,7 +378,7 @@ def calculate_hessian(y, tx, w):
     hessian = tx.T @ (s * tx) / tx.shape[0]   # s (N,1) * tx (N,D) -> each row scaled ; broadcasting is faster
     return hessian
 
-def logistic_regression(y, tx, w):
+def logistic_loss_gradient_hessian(y, tx, w):
     """return the loss, gradient of the loss, and hessian of the loss.
 
     Args:
@@ -366,7 +394,7 @@ def logistic_regression(y, tx, w):
     >>> y = np.c_[[0., 1.]]
     >>> tx = np.arange(6).reshape(2, 3)
     >>> w = np.array([[0.1], [0.2], [0.3]])
-    >>> loss, gradient, hessian = logistic_regression(y, tx, w)
+    >>> loss, gradient, hessian = logistic_loss_gradient_hessian(y, tx, w)
     >>> round(loss, 8)
     0.62137268
     >>> gradient, hessian
@@ -410,7 +438,7 @@ def learning_by_newton_method(y, tx, w, gamma):
            [ 0.80091466]])
     """
 
-    loss, gradient, hessian = logistic_regression(y, tx, w)
+    loss, gradient, hessian = logistic_loss_gradient_hessian(y, tx, w)
     w = w - gamma * np.linalg.solve(hessian, gradient) 
     return loss, w
 
