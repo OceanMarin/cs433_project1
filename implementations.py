@@ -107,14 +107,8 @@ def ridge_regression(y, tx, lambda_):
 
     return w
 
-def logistic_regression(y, tx, initial_w, max_iters, gamma):
-    return 0
-
-def reg_logistic_regression(y, tx, lambda_, initial_w, max_iters, gamma):
-    return 0
-
 def mse_loss(y, tx, w):
-    """Calculate the loss using either MSE or MAE.
+    """Calculate the MSE loss.
 
     Args:
         y: numpy array of shape=(N, )
