@@ -8,6 +8,7 @@ import numpy as np
 import implementations as impl
 
 ROOT = Path(__file__).resolve().parent
+K_FOLD, SEED = 5, 1         
 METHODS = [
     "mean_squared_error_gd", "mean_squared_error_sgd", "least_squares",
     "ridge_regression", "logistic_regression", "reg_logistic_regression",
@@ -33,28 +34,21 @@ def fit(method, x, y):
 
 def main():
     with np.load(ROOT / "data/dataset/preprocessed.npz", allow_pickle=False) as data:
-        x, x_test = data["x_train"], data["x_test"]
+        x, x_test = data["x_train"].astype(float), data["x_test"].astype(float)
         y, test_ids = data["y_train"], data["test_ids"]
     x = np.column_stack((np.ones(len(x)), x))
     x_test = np.column_stack((np.ones(len(x_test)), x_test))
 
-    indices = np.random.default_rng(433).permutation(len(y))
-    split = int(0.8 * len(y))
-    train, validation = indices[:split], indices[split:]
-    train_x, val_x = x[train], x[validation]
+    
     result_dir = ROOT / "result"
     result_dir.mkdir(exist_ok=True)
     scores = {}
 
     for method in METHODS:
-        print(f"Running {method}...", flush=True)
-        weights = fit(method, train_x, y[train])
-        # A zero logit is also the default 0.5 probability threshold for Logistic.
-        pred = np.where(val_x @ weights >= 0, 1, -1)
-        tp = np.sum((pred == 1) & (y[validation] == 1))
-        f1 = float(2 * tp / max(np.sum(pred == 1) + np.sum(y[validation] == 1), 1))
-        scores[method] = {"validation_f1": f1, "validation_accuracy": float(np.mean(pred == y[validation]))}
-        print(f"  validation F1={f1:.6f}; refitting on all rows", flush=True)
+        fit_fn = lambda yy, xx, m=method: fit(m, xx, yy)
+        tr_f1, te_f1 = impl.cross_validation_score(y, x, fit_fn, k_fold=K_FOLD, seed=SEED)
+        scores[method] = {"cv_train_f1": tr_f1, "cv_test_f1": te_f1}
+        print(f"{method:24s} CV train F1 {tr_f1:.4f}  test F1 {te_f1:.4f}", flush=True)
 
         weights = fit(method, x, y)
         if not np.isfinite(weights).all():
@@ -66,12 +60,12 @@ def main():
             fmt="%d", delimiter=",", header="Id,Prediction", comments="",
         )
 
-    best = max(scores, key=lambda method: scores[method]["validation_f1"])
+    best = max(scores, key=lambda m: scores[m]["cv_test_f1"])
     shutil.copyfile(result_dir / f"predictions_{best}.csv", ROOT / "submission.csv")
     (result_dir / "scores.json").write_text(
         json.dumps({"selected": best, "models": scores}, indent=2) + "\n", encoding="utf-8"
     )
-    print(f"Selected {best}: F1={scores[best]['validation_f1']:.6f} -> submission.csv")
+    print(f"Selected {best}: CV test F1={scores[best]['cv_test_f1']:.4f} -> submission.csv")
 
 
 if __name__ == "__main__":
