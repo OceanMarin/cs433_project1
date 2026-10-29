@@ -522,16 +522,15 @@ def build_k_indices(y, k_fold, seed):
     return np.array(k_indices)
 
 
-def _f1_from_weights(y, tx, w):
-    """F1 with labels in {-1, 1}. A sample is predicted positive when tx @ w >= 0,
-    the same rule run.py uses (logit >= 0, i.e. probability >= 0.5, for logistic)."""
-    pred = np.where(tx @ w >= 0, 1, -1)
+def _f1_from_weights(y, tx, w, threshold=0.0):
+    """F1 with labels in {-1, 1}, using the same score threshold as run.py."""
+    pred = np.where(tx @ w >= threshold, 1, -1)
     tp = np.sum((pred == 1) & (y == 1))
     denom = np.sum(pred == 1) + np.sum(y == 1)
     return float(2 * tp / denom) if denom else 0.0
 
 
-def cross_validation(y, tx, k_indices, k, fit_fn):
+def cross_validation(y, tx, k_indices, k, fit_fn, threshold=0.0):
     """Train on the K-1 training folds, evaluate F1 on train and on the held-out fold k.
 
     Args:
@@ -547,15 +546,15 @@ def cross_validation(y, tx, k_indices, k, fit_fn):
     te = k_indices[k]
     tr = k_indices[np.arange(k_indices.shape[0]) != k].reshape(-1)
     w = fit_fn(y[tr], tx[tr])
-    return _f1_from_weights(y[tr], tx[tr], w), _f1_from_weights(y[te], tx[te], w)
+    return _f1_from_weights(y[tr], tx[tr], w, threshold), _f1_from_weights(y[te], tx[te], w, threshold)
 
 
-def cross_validation_score(y, tx, fit_fn, k_fold=5, seed=1):
+def cross_validation_score(y, tx, fit_fn, k_fold=5, seed=1, threshold=0.0):
     """Average train/test F1 over all k folds for one fit function."""
     k_indices = build_k_indices(y, k_fold, seed)
     tr, te = [], []
     for k in range(k_fold):
-        a, b = cross_validation(y, tx, k_indices, k, fit_fn)
+        a, b = cross_validation(y, tx, k_indices, k, fit_fn, threshold)
         tr.append(a)
         te.append(b)
     return float(np.mean(tr)), float(np.mean(te))

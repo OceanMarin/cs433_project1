@@ -9,6 +9,7 @@ import implementations as impl
 
 ROOT = Path(__file__).resolve().parent
 K_FOLD, SEED = 5, 1         
+LOGISTIC_THRESHOLD = 0.2
 METHODS = [
     "mean_squared_error_gd", "mean_squared_error_sgd", "least_squares",
     "ridge_regression", "logistic_regression", "reg_logistic_regression",
@@ -45,15 +46,16 @@ def main():
     scores = {}
 
     for method in METHODS:
+        threshold = np.log(LOGISTIC_THRESHOLD / (1 - LOGISTIC_THRESHOLD)) if "logistic" in method else 0.0
         fit_fn = lambda yy, xx, m=method: fit(m, xx, yy)
-        tr_f1, te_f1 = impl.cross_validation_score(y, x, fit_fn, k_fold=K_FOLD, seed=SEED)
-        scores[method] = {"cv_train_f1": tr_f1, "cv_test_f1": te_f1}
+        tr_f1, te_f1 = impl.cross_validation_score(y, x, fit_fn, k_fold=K_FOLD, seed=SEED, threshold=threshold)
+        scores[method] = {"cv_train_f1": tr_f1, "cv_test_f1": te_f1, "score_threshold": float(threshold)}
         print(f"{method:24s} CV train F1 {tr_f1:.4f}  test F1 {te_f1:.4f}", flush=True)
 
         weights = fit(method, x, y)
         if not np.isfinite(weights).all():
             raise ValueError(f"Nonfinite weights from {method}")
-        predictions = np.where(x_test @ weights >= 0, 1, -1)
+        predictions = np.where(x_test @ weights >= threshold, 1, -1)
         np.savetxt(
             result_dir / f"predictions_{method}.csv",
             np.column_stack((test_ids, predictions)),
