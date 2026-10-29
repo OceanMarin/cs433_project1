@@ -506,3 +506,56 @@ def learning_by_penalized_gradient(y, tx, w, gamma, lambda_):
     loss, gradient = penalized_logistic_regression(y, tx, w, lambda_)
     w = w - gamma * gradient
     return loss, w
+
+def build_k_indices(y, k_fold, seed):
+    """Build k groups of row indices for k-fold cross-validation.
+
+    >>> build_k_indices(np.array([1., 2., 3., 4.]), 2, 1)
+    array([[3, 2],
+           [0, 1]])
+    """
+    num_row = y.shape[0]
+    interval = int(num_row / k_fold)
+    np.random.seed(seed)
+    indices = np.random.permutation(num_row)
+    k_indices = [indices[k * interval : (k + 1) * interval] for k in range(k_fold)]
+    return np.array(k_indices)
+
+
+def _f1_from_weights(y, tx, w):
+    """F1 with labels in {-1, 1}. A sample is predicted positive when tx @ w >= 0,
+    the same rule run.py uses (logit >= 0, i.e. probability >= 0.5, for logistic)."""
+    pred = np.where(tx @ w >= 0, 1, -1)
+    tp = np.sum((pred == 1) & (y == 1))
+    denom = np.sum(pred == 1) + np.sum(y == 1)
+    return float(2 * tp / denom) if denom else 0.0
+
+
+def cross_validation(y, tx, k_indices, k, fit_fn):
+    """Train on the K-1 training folds, evaluate F1 on train and on the held-out fold k.
+
+    Args:
+        y:         shape (N,), labels in {-1, 1}
+        tx:        shape (N, D), feature matrix (already includes intercept / any expansion)
+        k_indices: 2D array from build_k_indices()
+        k:         index of the fold used as the test fold
+        fit_fn:    callable fit_fn(y_tr, tx_tr) -> weights w of shape (D,)
+
+    Returns:
+        (train_f1, test_f1)
+    """
+    te = k_indices[k]
+    tr = k_indices[np.arange(k_indices.shape[0]) != k].reshape(-1)
+    w = fit_fn(y[tr], tx[tr])
+    return _f1_from_weights(y[tr], tx[tr], w), _f1_from_weights(y[te], tx[te], w)
+
+
+def cross_validation_score(y, tx, fit_fn, k_fold=5, seed=1):
+    """Average train/test F1 over all k folds for one fit function."""
+    k_indices = build_k_indices(y, k_fold, seed)
+    tr, te = [], []
+    for k in range(k_fold):
+        a, b = cross_validation(y, tx, k_indices, k, fit_fn)
+        tr.append(a)
+        te.append(b)
+    return float(np.mean(tr)), float(np.mean(te))
