@@ -12,7 +12,7 @@ cs433_project1/
 ├── implementations.py           # the six required ML methods + helpers + k-fold CV
 ├── run.py                        # trains the six methods, selects the best, writes submission.csv
 ├── project1_preprocessing.ipynb  # Phase 1: cleaning/encoding + EDA -> writes preprocessed.npz
-├── leastsquares_ridgereg.ipynb   # experiments: least squares, ridge, logistic (RMSE curves)
+├── leastsquares_ridgereg.ipynb   # experiments: least squares, ridge
 ├── README.md
 ├── helpers.py                    # course-provided load_csv_data  (NOT committed, add manually)
 ├── submission.csv                # produced by run.py
