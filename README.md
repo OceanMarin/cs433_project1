@@ -29,7 +29,8 @@ cs433_project1/
 |------|-------------|
 | `implementations.py` | The six required ML methods, plus helpers (loss, gradient, sigmoid) and k-fold cross-validation. |
 | `project1_preprocessing.ipynb` | Phase 1: cleans and encodes the raw data (with exploratory analysis and figures) and writes `preprocessed.npz`. |
-| `run.py` | Loads `preprocessed.npz`, trains the six methods with 5-fold CV, selects the best by F1, and writes `submission.csv`. |
+| `leastsquares_ridgereg.ipynb` | Experiments on least squares and ridge. |
+| `run.py` | Loads `preprocessed.npz`, trains the six methods with 5-fold cross-validation (CV), selects the best by F1, and writes `submission.csv`. |
 | `README.md` | This file. |
 
 `helpers.py` (the course-provided `load_csv_data`) is **not committed**. Copy it from the
